@@ -6,11 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Todo extends Model
 {
-    protected $fillable = [
-        'title',
-        'user_id',
-        'status',
-    ];
+    protected $fillable = ['title', 'is_completed', 'category', 'due_date'];
+
 
     protected $casts = [
         'status' => 'boolean',

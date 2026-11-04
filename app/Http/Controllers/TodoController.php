@@ -10,13 +10,27 @@ class TodoController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+   public function index(Request $request)
     {
-        $data = Todo::where('user_id', auth()->id())->latest()->get();
-        if ($request->header('HX-Request')) {
-            return view('todos.list', compact('data'));
+        $query = Todo::query();
+
+           if ($request->has('search') && $request->search != '') {
+            $query->where('title', 'like', '%' . $request->search . '%');
         }
-        return view('todos.home', compact('data'));
+
+
+        if ($request->has('filter_category') && $request->filter_category != 'All') {
+            $query->where('category', $request->filter_category);
+        }
+
+        $todos = $query->latest()->get();
+
+
+        if ($request->header('HX-Request')) {
+            return view('todos.partials.list', compact('todos'));
+        }
+
+        return view('todos.index', compact('todos'));
     }
 
     /**
@@ -30,31 +44,23 @@ class TodoController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+     public function store(Request $request)
     {
         $request->validate([
-             'title' => [
-                    'required',
-                    'string',
-                    'max:255',
-                ],
-        ],[],
-            [
-                'title' => 'Todo',
-            ]
-        );
-        
+            'title' => 'required|string|max:255',
+            'category' => 'nullable|string',
+            'due_date' => 'nullable|date',
+        ]);
 
         Todo::create([
             'title' => $request->title,
-            'user_id' => auth()->id()
+            'category' => $request->category ?? 'General',
+            'due_date' => $request->due_date,
         ]);
 
-
-        return response('', 200)
-    ->header('HX-Trigger', 'todoCreated');
+        $todos = Todo::latest()->get();
+        return view('todos.partials.list', compact('todos'));
     }
-
     /**
      * Display the specified resource.
      */
@@ -66,11 +72,9 @@ class TodoController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Todo $todo)
+       public function edit(Todo $todo)
     {
-        return view('todos.edit', [
-            'todo' => $todo,
-        ]);
+        return view('todos.partials.edit-form', compact('todo'));
     }
 
     /**
@@ -79,35 +83,32 @@ class TodoController extends Controller
     public function update(Request $request, Todo $todo)
     {
         $request->validate([
-             'title' => [
-                    'required',
-                    'string',
-                    'max:255',
-                ],
-        ],[],
-            [
-                'title' => 'Todo',
-            ]
-        );
-        
-
-        $todo->update([
-            'title' => $request->title,
-            'status' => $request->status
+            'title' => 'required|string|max:255',
+            'category' => 'nullable|string',
+            'due_date' => 'nullable|date',
         ]);
 
+        $todo->update($request->only(['title', 'category', 'due_date']));
 
-        return response('', 200)
-    ->header('HX-Trigger', 'todoCreated');
+        $todos = Todo::latest()->get();
+        return view('todos.partials.list', compact('todos'));
     }
-
     /**
      * Remove the specified resource from storage.
      */
     public function destroy(Todo $todo)
     {
-        $todo->delete();
+          $todo->delete();
 
-        return response('');
+        $todos = Todo::latest()->get();
+        return view('todos.partials.list', compact('todos'));
+    }
+
+     public function toggle(Todo $todo)
+    {
+        $todo->update(['is_completed' => !$todo->is_completed]);
+
+        $todos = Todo::latest()->get();
+        return view('todos.partials.list', compact('todos'));
     }
 }
